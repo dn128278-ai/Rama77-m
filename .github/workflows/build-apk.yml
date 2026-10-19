@@ -22,21 +22,26 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace --no-daemon
-
-      - name: Verify Generated APK
+      - name: Locate Project & Build APK
         run: |
-          echo "=== Generated APK Files ==="
-          ls -lh app/build/outputs/apk/debug/
+          # Gradlew का सटीक पाथ ढूंढें (chahe root me ho ya RAMA77-Project me)
+          GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
+          if [ -z "$GRADLEW_PATH" ]; then
+            echo "Error: gradlew file not found in repository!"
+            exit 1
+          fi
+          
+          PROJECT_DIR=$(dirname "$GRADLEW_PATH")
+          echo "Found project directory at: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
+          
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace --no-daemon
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: RAMA77-Debug-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: "**/build/outputs/apk/debug/*.apk"
           if-no-files-found: error
           retention-days: 14
