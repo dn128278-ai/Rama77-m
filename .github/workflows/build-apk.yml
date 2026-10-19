@@ -1,37 +1,66 @@
-name: Build Android APK
+name: Build APK from Uploaded ZIP
 
 on:
   push:
-    branches:
-      - main  # या master (जो भी आपकी मुख्य ब्रांच हो)
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch: # इससे आप खुद मैन्युअल रूप से भी बटन दबाकर APK बना सकते हैं
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Unzip Project File Automatically
+        run: |
+          echo "Unzipping uploaded project ZIP..."
+          unzip -o dhanraj-games-source.zip -d extracted_project || unzip -o *.zip -d extracted_project
+          ls -la extracted_project
+
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
           distribution: 'temurin'
-          cache: gradle
+          java-version: '17'
 
-      - name: Make Gradlew Executable
-        run: chmod +x gradlew
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.6'
+          channel: 'stable'
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Locate Flutter App Directory
+        id: locate
+        run: |
+          if [ -f "extracted_project/flutter_app/pubspec.yaml" ]; then
+            echo "FLUTTER_DIR=extracted_project/flutter_app" >> $GITHUB_ENV
+          elif [ -f "extracted_project/pubspec.yaml" ]; then
+            echo "FLUTTER_DIR=extracted_project" >> $GITHUB_ENV
+          else
+            echo "Searching for pubspec.yaml..."
+            FOUND_DIR=$(find extracted_project -name "pubspec.yaml" -exec dirname {} \;)
+            echo "FLUTTER_DIR=$FOUND_DIR" >> $GITHUB_ENV
+          fi
 
-      - name: Upload APK Artifact
+      - name: Clean Android Scaffold & Build APK
+        run: |
+          cd ${{ env.FLUTTER_DIR }}
+          
+          # Clean broken Android folder & recreate fresh scaffold
+          rm -rf android
+          flutter create . --platforms=android --org=com.dhanraj.games
+          
+          # Get dependencies
+          flutter pub get
+          
+          # Build Release APK
+          flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RAMA77-Debug-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: release-apk
+          path: ${{ env.FLUTTER_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
