@@ -2,7 +2,9 @@ name: Build APK from Uploaded ZIP
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches:
+      - main
+      - master
   workflow_dispatch:
 
 jobs:
@@ -15,52 +17,38 @@ jobs:
 
       - name: Unzip Project File Automatically
         run: |
-          echo "Unzipping uploaded project ZIP..."
-          unzip -o dhanraj-games-source.zip -d extracted_project || unzip -o *.zip -d extracted_project
-          ls -la extracted_project
+          if [ -f *.zip ]; then
+            unzip -o *.zip
+          fi
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
           java-version: '17'
+          distribution: 'temurin'
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.6'
           channel: 'stable'
 
       - name: Locate Flutter App Directory
-        id: locate
         run: |
-          if [ -f "extracted_project/flutter_app/pubspec.yaml" ]; then
-            echo "FLUTTER_DIR=extracted_project/flutter_app" >> $GITHUB_ENV
-          elif [ -f "extracted_project/pubspec.yaml" ]; then
-            echo "FLUTTER_DIR=extracted_project" >> $GITHUB_ENV
+          if [ -f "pubspec.yaml" ]; then
+            echo "ROOT_DIR=." >> $GITHUB_ENV
           else
-            echo "Searching for pubspec.yaml..."
-            FOUND_DIR=$(find extracted_project -name "pubspec.yaml" -exec dirname {} \;)
-            echo "FLUTTER_DIR=$FOUND_DIR" >> $GITHUB_ENV
+            DIR=$(find . -name "pubspec.yaml" -exec dirname {} \;)
+            echo "ROOT_DIR=$DIR" >> $GITHUB_ENV
           fi
 
-      - name: Clean Android Scaffold & Build APK
+      - name: Clean & Build APK
         run: |
-          cd ${{ env.FLUTTER_DIR }}
-          
-          # Clean broken Android folder & recreate fresh scaffold
-          rm -rf android
-          flutter create . --platforms=android --org=com.dhanraj.games
-          
-          # Get dependencies
+          cd ${{ env.ROOT_DIR }}
           flutter pub get
-          
-          # Build Release APK
-          flutter build apk --release --no-tree-shake-icons
+          flutter build apk --debug
 
-      - name: Upload Release APK Artifact
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
-          path: ${{ env.FLUTTER_DIR }}/build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
+          name: RAMA77-APK
+          path: "**/build/**/outputs/**/*.apk"
