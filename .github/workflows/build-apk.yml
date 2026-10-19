@@ -22,19 +22,26 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Locate Project & Build APK
+      - name: Install Gradle & Build APK
         run: |
-          # Gradlew का सटीक पाथ ढूंढें (chahe root me ho ya RAMA77-Project me)
-          GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
-          if [ -z "$GRADLEW_PATH" ]; then
-            echo "Error: gradlew file not found in repository!"
+          # 1. Zip file kholein agar zip me project hai
+          if [ -f *.zip ]; then
+            unzip -o *.zip
+          fi
+
+          # 2. build.gradle ki location dhoondhein
+          BUILD_GRADLE_PATH=$(find . -name "build.gradle" -o -name "build.gradle.kts" | head -n 1)
+          if [ -z "$BUILD_GRADLE_PATH" ]; then
+            echo "Error: build.gradle not found!"
             exit 1
           fi
           
-          PROJECT_DIR=$(dirname "$GRADLEW_PATH")
-          echo "Found project directory at: $PROJECT_DIR"
+          PROJECT_DIR=$(dirname "$BUILD_GRADLE_PATH")
+          echo "Project folder found at: $PROJECT_DIR"
           cd "$PROJECT_DIR"
-          
+
+          # 3. Gradle Wrapper generate karein aur APK banayein
+          gradle wrapper
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace --no-daemon
 
